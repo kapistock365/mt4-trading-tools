@@ -9,11 +9,14 @@ MetaTrader 4用のEA（Expert Advisors）とカスタムインジケーターの
 git clone https://github.com/kapistock365/mt4-trading-tools.git
 cd mt4-trading-tools
 
-# セットアップスクリプトを実行
-./setup.sh
-
-# Claude Codeで開発開始（自動的にコンテキストが適用されます）
+# Claude Codeで開発開始（.clinerrulesが自動的に読み込まれます）
 claude
+```
+
+### MQL4ファイルの文字化け対策
+MQL4ファイルがUTF-16LEで保存されている場合、以下のコマンドで読めます：
+```bash
+iconv -f UTF-16LE -t UTF-8 ファイル名
 ```
 
 ## ディレクトリ構造
