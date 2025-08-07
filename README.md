@@ -2,6 +2,20 @@
 
 MetaTrader 4用のEA（Expert Advisors）とカスタムインジケーターのリポジトリです。
 
+## クイックスタート（開発者向け）
+
+```bash
+# リポジトリをクローン
+git clone https://github.com/kapistock365/mt4-trading-tools.git
+cd mt4-trading-tools
+
+# セットアップスクリプトを実行
+./setup.sh
+
+# Claude Codeで開発開始（自動的にコンテキストが適用されます）
+claude
+```
+
 ## ディレクトリ構造
 
 - `Experts/` - EA（自動売買プログラム）
