@@ -11,8 +11,8 @@
 #include "../Include/PluginBase.mqh"
 #include "../Include/Plugins/BreakoutPlugin.mqh"
 #include "../Include/Plugins/RiskManagerPlugin.mqh"
-#include "../CT_Trail_2.00/Include/OrderManager.mqh"
-#include "../CT_Trail_2.00/Include/AccountManager.mqh"
+#include "../Include/Core/OrderManager.mqh"
+#include "../Include/Core/AccountManager.mqh"
 
 // インプットパラメータ（基本設定）
 input string  sep1 = "=== 基本設定 ===";               // -----
@@ -63,7 +63,7 @@ int OnInit()
     }
     
     if(EnableRiskManager) {
-        CRiskManagerPlugin* riskPlugin = new CRiskManagerPlugin();
+        CRiskManagerPlugin* riskPlugin = new CRiskManagerPlugin(g_orderManager, g_accountManager);
         g_pluginManager.RegisterPlugin(riskPlugin);
     }
     
@@ -165,7 +165,7 @@ void OnChartEvent(const int id,
     if(id == CHARTEVENT_OBJECT_CLICK) {
         if(sparam == "UTE_CloseAll") {
             if(MessageBox("全ポジションを決済しますか？", "確認", MB_YESNO) == IDYES) {
-                g_orderManager.CloseAllPositions();
+                g_orderManager.CloseAllPositions();  // OrderManagerの機能を活用
             }
         }
         else if(sparam == "UTE_Settings") {

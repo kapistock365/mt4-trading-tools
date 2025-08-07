@@ -5,6 +5,8 @@
 #property strict
 
 #include "../PluginBase.mqh"
+#include "../Core/OrderManager.mqh"
+#include "../Core/AccountManager.mqh"
 
 // リスク管理設定
 struct RiskSettings {
@@ -26,14 +28,19 @@ class CRiskManagerPlugin : public CPluginBase
 {
 private:
     RiskSettings m_settings;
+    COrderManager* m_orderManager;      // OrderManager参照
+    CAccountManager* m_accountManager;  // AccountManager参照
     datetime m_currentDay;
     double m_dailyStartBalance;
     bool m_dailyLimitReached;
     
 public:
     // コンストラクタ
-    CRiskManagerPlugin() : 
+    CRiskManagerPlugin(COrderManager* orderManager = NULL, CAccountManager* accountManager = NULL) : 
         CPluginBase("RiskManagerPlugin", "1.0", "自動損切りとリスク管理") {
+        
+        m_orderManager = orderManager;
+        m_accountManager = accountManager;
         
         // デフォルト設定
         m_settings.MaxLossPerTrade = 2.0;
@@ -205,9 +212,9 @@ private:
                     PartialClosePosition(OrderTicket());
                 }
                 
-                // トレーリングストップ
-                if(m_settings.UseTrailingStop && profitPips >= m_settings.TrailingStart) {
-                    TrailingStop(OrderTicket());
+                // トレーリングストップ（OrderManagerを使用）
+                if(m_settings.UseTrailingStop && profitPips >= m_settings.TrailingStart && m_orderManager != NULL) {
+                    m_orderManager.SetTrailingStop(OrderTicket(), m_settings.TrailingDistance);
                 }
             }
         }
@@ -246,12 +253,72 @@ private:
         }
     }
     
-    // その他のヘルパー関数（実装は省略）
-    void MoveToBreakEven(int ticket) {}
-    void TrailingStop(int ticket) {}
-    void PartialClosePosition(int ticket) {}
-    double CalculateProfitInPips(int ticket) { return 0; }
-    bool CheckDailyLossLimit() { return false; }
+    // ブレークイーブンに移動
+    void MoveToBreakEven(int ticket) {
+        if(!OrderSelect(ticket, SELECT_BY_TICKET)) return;
+        
+        double newStopLoss = 0;
+        
+        if(OrderType() == OP_BUY) {
+            newStopLoss = OrderOpenPrice() + Point;
+            if(OrderStopLoss() < newStopLoss && Bid > OrderOpenPrice() + m_settings.BreakEvenProfit * Point * 10) {
+                OrderModify(ticket, OrderOpenPrice(), newStopLoss, OrderTakeProfit(), 0, clrGreen);
+            }
+        }
+        else if(OrderType() == OP_SELL) {
+            newStopLoss = OrderOpenPrice() - Point;
+            if(OrderStopLoss() > newStopLoss && Ask < OrderOpenPrice() - m_settings.BreakEvenProfit * Point * 10) {
+                OrderModify(ticket, OrderOpenPrice(), newStopLoss, OrderTakeProfit(), 0, clrGreen);
+            }
+        }
+    }
+    
+    // 部分決済（OrderManagerを使用）
+    void PartialClosePosition(int ticket) {
+        if(m_orderManager != NULL) {
+            // すでに部分決済済みかチェック
+            if(OrderSelect(ticket, SELECT_BY_TICKET) && StringFind(OrderComment(), "partial") < 0) {
+                m_orderManager.PartialClosePosition(ticket, m_settings.PartialClosePercent);
+            }
+        }
+    }
+    
+    // 利益をpipsで計算
+    double CalculateProfitInPips(int ticket) {
+        if(!OrderSelect(ticket, SELECT_BY_TICKET)) return 0;
+        
+        double profit = 0;
+        
+        if(OrderType() == OP_BUY) {
+            profit = (Bid - OrderOpenPrice()) / Point;
+        }
+        else if(OrderType() == OP_SELL) {
+            profit = (OrderOpenPrice() - Ask) / Point;
+        }
+        
+        // ブローカー設定に応じて調整
+        if(m_accountManager != NULL && m_accountManager.GetIsPipsX10()) {
+            profit = profit / 10;
+        }
+        
+        return profit;
+    }
+    
+    // 日次損失制限チェック（AccountManagerを使用）
+    bool CheckDailyLossLimit() {
+        double currentBalance = AccountBalance();
+        double todayLoss = m_dailyStartBalance - currentBalance;
+        
+        // AccountManagerから本日の損益も考慮
+        if(m_accountManager != NULL) {
+            double todayProfit = m_accountManager.CalculateTodayProfit();
+            todayLoss = -todayProfit;  // 利益がマイナスなら損失
+        }
+        
+        double lossPercent = (todayLoss / m_dailyStartBalance) * 100;
+        
+        return lossPercent >= m_settings.DailyMaxLoss;
+    }
     
     // GUI関数（BreakoutPluginと同様）
     void CreateLabel(string name, string text, int x, int y) {
