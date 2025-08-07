@@ -1,5 +1,7 @@
 # 開発ガイドライン
 
+> 📐 **アーキテクチャの詳細は[ARCHITECTURE.md](ARCHITECTURE.md)を参照**
+
 ## コーディング規約
 
 ### ファイル構成
@@ -101,6 +103,106 @@ if(GetLastError() != 0) {
     Print("エラー: ", GetLastError());
     ResetLastError();
 }
+```
+
+## プラグイン開発
+
+### 新規プラグインの作成手順
+
+#### 1. プラグインクラスの作成
+
+`Include/Plugins/`ディレクトリに新しいファイルを作成：
+
+```mql4
+// Include/Plugins/MyNewPlugin.mqh
+#property copyright "Copyright 2025"
+#property strict
+
+#include "../PluginBase.mqh"
+
+class CMyNewPlugin : public CPluginBase
+{
+private:
+    // プラグイン固有の変数
+    
+public:
+    // コンストラクタ
+    CMyNewPlugin() : CPluginBase("MyNewPlugin", "1.0", "説明") {}
+    
+    // 必須メソッドの実装
+    virtual bool OnInit() override {
+        // 初期化処理
+        return true;
+    }
+    
+    virtual void OnDeinit() override {
+        // 終了処理
+    }
+    
+    virtual void OnTick() override {
+        if(!IsEnabled()) return;
+        // ティック処理
+    }
+};
+```
+
+#### 2. UnifiedTradingEAへの登録
+
+```mql4
+// Experts/UnifiedTradingEA.mq4のOnInit()に追加
+#include "../Include/Plugins/MyNewPlugin.mqh"
+
+// プラグインの登録
+CMyNewPlugin* myPlugin = new CMyNewPlugin();
+g_pluginManager.RegisterPlugin(myPlugin);
+```
+
+#### 3. GUI統合（オプション）
+
+```mql4
+virtual void CreateSettingsPanel(int &y) override {
+    string prefix = "MNP_";  // プラグイン固有のプレフィックス
+    
+    CreateLabel(prefix + "Title", "【My Plugin設定】", 10, y);
+    y += 20;
+    
+    // 設定項目を追加
+}
+```
+
+### プラグイン開発のベストプラクティス
+
+1. **独立性の維持**
+   - 他のプラグインに依存しない
+   - 共有リソースは最小限に
+
+2. **エラーハンドリング**
+   ```mql4
+   if(エラー条件) {
+       Print(m_name + ": エラーメッセージ");
+       return;
+   }
+   ```
+
+3. **設定の永続化**
+   ```mql4
+   virtual bool SaveSettings() override {
+       // Files/プラグイン名.setに保存
+   }
+   ```
+
+4. **リソース管理**
+   - OnDeinit()で確実にリソースを解放
+   - オブジェクトの削除を忘れない
+
+### プラグイン間通信（計画中）
+
+```mql4
+// イベントの発行
+PublishEvent("SIGNAL_DETECTED", データ);
+
+// イベントの購読
+SubscribeEvent("SIGNAL_DETECTED", OnSignalDetected);
 ```
 
 ## パフォーマンス最適化
