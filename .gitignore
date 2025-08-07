@@ -1,0 +1,28 @@
+# MetaTrader 4 files
+*.ex4
+*.log
+*.dat
+
+# Backup files
+*.bak
+*~
+
+# Compiled files
+*.o
+*.obj
+
+# Test and log files
+tester/
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# Temporary files
+*.tmp
+*.temp
