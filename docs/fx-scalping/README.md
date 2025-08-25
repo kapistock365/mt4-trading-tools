@@ -39,6 +39,31 @@ EA全体のシステムアーキテクチャ設計。
 - パラメータ最適化戦略
 - 評価指標
 
+### 7. [TESTING_GUIDE.md](TESTING_GUIDE.md)
+MT4でのテスト実行ガイド。
+- インストール手順
+- 初期設定の推奨値
+- デバッグ方法
+
+## 📦 実装済みモジュール
+
+### コアモジュール
+- **DataStructures.mqh** - 共通データ構造定義
+- **MarketAnalyzer.mqh** - 市場分析エンジン
+- **BuildupDetector.mqh** - ビルドアップパターン検出
+
+### トレード戦略プラグイン
+- **PatternBreakPlugin.mqh** - パターンブレイク戦略（実装済み）
+- **PBPullbackPlugin.mqh** - パターンブレイク・プルバック戦略（実装済み）
+- **PBComboPlugin.mqh** - パターンブレイク・コンビ戦略（実装済み）
+
+### フィルターモジュール
+- **TimeFilter.mqh** - 時間帯フィルター（セッション管理）
+- **SpreadFilter.mqh** - スプレッドフィルター（適応型閾値）
+
+### メインEA
+- **FX5MinScalpingEA.mq4** - 統合EA本体（GUI付き）
+
 ## 🚀 クイックスタート
 
 開発を始める際は、以下の順序でドキュメントを確認してください：
@@ -62,3 +87,4 @@ EA全体のシステムアーキテクチャ設計。
 
 ---
 *最終更新: 2025-08-25*
+*実装完了: Pattern Break, PB Pullback, PB Combo, TimeFilter, SpreadFilter*
