@@ -45,6 +45,42 @@ MT4でのテスト実行ガイド。
 - 初期設定の推奨値
 - デバッグ方法
 
+### 8. [USER_MANUAL.md](USER_MANUAL.md)
+エンドユーザー向け完全マニュアル。
+- 3つの戦略の詳細説明と図解
+- パラメータ設定ガイド
+- トラブルシューティング
+
+### 9. [QUICK_START_GUIDE.md](QUICK_START_GUIDE.md)
+10分で始められるクイックガイド。
+- 簡単セットアップ
+- プリセット設定
+- よくある質問
+
+### 10. [PROJECT_COMPLETION_REPORT.md](PROJECT_COMPLETION_REPORT.md)
+プロジェクト完了報告書。
+- 実装内容の総括
+- 成果物一覧
+- 次のステップ
+
+### 11. [HANDOVER_GUIDE.md](HANDOVER_GUIDE.md) ⭐重要
+別PC/セッションへの引き継ぎガイド。
+- Gitクローン手順
+- Claude Codeへの説明文
+- よくあるエラーと対処法
+
+### 12. [FILE_STRUCTURE.md](FILE_STRUCTURE.md)
+ファイル構造と依存関係。
+- 完全なファイルツリー
+- インクルード依存関係
+- コード統計
+
+### 13. [COMPATIBILITY_CHECK.md](COMPATIBILITY_CHECK.md)
+既存ライブラリとの互換性。
+- 競合チェックリスト
+- エラー対処法
+- MT4ビルド別対応
+
 ## 📦 実装済みモジュール
 
 ### コアモジュール
