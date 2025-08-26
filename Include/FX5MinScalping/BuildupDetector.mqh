@@ -334,8 +334,14 @@ int CBuildupDetector::DetermineDirection(int startBar, int endBar) {
     
     // 3. 終値の位置
     double lastClose = iClose(m_symbol, m_timeframe, endBar);
-    double rangePosition = (lastClose - iLow(m_symbol, m_timeframe, endBar)) / 
-                          (iHigh(m_symbol, m_timeframe, endBar) - iLow(m_symbol, m_timeframe, endBar));
+    double highValue = iHigh(m_symbol, m_timeframe, endBar);
+    double lowValue = iLow(m_symbol, m_timeframe, endBar);
+    double range = highValue - lowValue;
+    
+    double rangePosition = 0.5; // デフォルト値（中間）
+    if(range > 0) {
+        rangePosition = (lastClose - lowValue) / range;
+    }
     
     // 総合判定
     int direction = 0;

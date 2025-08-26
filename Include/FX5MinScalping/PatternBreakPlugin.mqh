@@ -177,17 +177,26 @@ bool CPatternBreakPlugin::OnInit() {
         return false;
     }
     
-    m_orderManager = new COrderManager();
-    if(!m_orderManager.Initialize(m_magicNumber, 3)) {
-        Print("Failed to initialize OrderManager");
-        return false;
-    }
+    // COrderManagerの初期化（必要なパラメータを全て指定）
+    m_orderManager = new COrderManager(
+        0.01,           // lots (後で更新)
+        20.0,           // target (pips)
+        10.0,           // stop (pips)
+        5.0,            // margin (pips)
+        1000,           // sleepTime
+        true,           // isPipsX10
+        true,           // useTrailingStop
+        5.0             // trail (pips)
+    );
     
-    m_accountManager = new CAccountManager();
-    if(!m_accountManager.Initialize(m_riskPercent)) {
-        Print("Failed to initialize AccountManager");
-        return false;
-    }
+    // CAccountManagerの初期化
+    m_accountManager = new CAccountManager(
+        true,           // useAutoLotSize
+        m_riskPercent,  // riskPercent
+        0.01,           // baseLotSize
+        true,           // isPipsX10
+        9               // timeZoneOffset (JST)
+    );
     
     // タイマー設定（1分毎）
     EventSetTimer(60);
@@ -247,10 +256,14 @@ void CPatternBreakPlugin::OnTick() {
     // ブレイクアウトチェック
     if(m_patternActive) {
         if(CheckBreakout()) {
+            Print("Breakout detected! Signal generated.");
             // シグナル生成
             if(ApplyFilters(m_lastSignal)) {
+                Print("Filters passed. Executing trade...");
                 // トレード実行
                 ExecuteTrade(m_lastSignal);
+            } else {
+                Print("Trade blocked by filters.");
             }
         }
     }
@@ -291,14 +304,22 @@ bool CPatternBreakPlugin::DetectPattern() {
             double distanceToUpper = PriceToPips(m_currentPattern.upperBoundary - m_currentBuildup.centerPrice);
             double distanceToLower = PriceToPips(m_currentBuildup.centerPrice - m_currentPattern.lowerBoundary);
             
-            if(distanceToUpper <= 3.0 || distanceToLower <= 3.0) {
+            if(distanceToUpper <= 5.0 || distanceToLower <= 5.0) {  // 3.0から5.0に緩和
                 m_patternActive = true;
                 
                 // パターン描画
                 m_buildupDetector.DrawBuildup("PB", m_currentBuildup, clrYellow);
                 
                 Print("Pattern detected: ", GetPatternDescription());
+                Print("Pattern boundaries: Upper=", m_currentPattern.upperBoundary,
+                      " Lower=", m_currentPattern.lowerBoundary);
+                Print("Buildup center: ", m_currentBuildup.centerPrice,
+                      " Distance to upper=", distanceToUpper,
+                      " Distance to lower=", distanceToLower);
                 return true;
+            } else {
+                Print("Buildup too far from boundaries: Upper dist=", distanceToUpper,
+                      " Lower dist=", distanceToLower);
             }
         }
     }
@@ -312,8 +333,15 @@ bool CPatternBreakPlugin::DetectPattern() {
 bool CPatternBreakPlugin::CheckBreakout() {
     if(!m_patternActive) return false;
     
+    // 現在のバー（インデックス0）で判定
     double currentClose = iClose(Symbol(), PERIOD_M5, 0);
     double prevClose = iClose(Symbol(), PERIOD_M5, 1);
+    
+    // デバッグ情報
+    Print("Checking breakout: Close[0]=", currentClose, 
+          " Upper=", m_currentPattern.upperBoundary,
+          " Lower=", m_currentPattern.lowerBoundary,
+          " MinBreak=", m_breakoutMinPips);
     
     // 上方ブレイク
     if(currentClose > m_currentPattern.upperBoundary + PipsToPrice(m_breakoutMinPips)) {
@@ -329,10 +357,15 @@ bool CPatternBreakPlugin::CheckBreakout() {
             m_lastSignal.expirationTime = TimeCurrent() + 300;  // 5分有効
             m_lastSignal.isValid = true;
             
+            Print("Buy signal generated: Entry=", m_lastSignal.entryPrice,
+                  " SL=", m_lastSignal.stopLoss, " TP=", m_lastSignal.takeProfit);
+            
             m_lastBreakTime = TimeCurrent();
             m_patternActive = false;  // パターン無効化
             
             return true;
+        } else {
+            Print("Upper breakout validation failed");
         }
     }
     
@@ -350,10 +383,15 @@ bool CPatternBreakPlugin::CheckBreakout() {
             m_lastSignal.expirationTime = TimeCurrent() + 300;
             m_lastSignal.isValid = true;
             
+            Print("Sell signal generated: Entry=", m_lastSignal.entryPrice,
+                  " SL=", m_lastSignal.stopLoss, " TP=", m_lastSignal.takeProfit);
+            
             m_lastBreakTime = TimeCurrent();
             m_patternActive = false;
             
             return true;
+        } else {
+            Print("Lower breakout validation failed");
         }
     }
     
@@ -378,10 +416,14 @@ bool CPatternBreakPlugin::ValidateBreakout(int direction) {
     }
     
     if(breakSize < m_breakoutMinPips || breakSize > m_breakoutMaxPips) {
+        Print("Breakout validation failed: Size=", breakSize, 
+              " Min=", m_breakoutMinPips, " Max=", m_breakoutMaxPips);
         return false;
     }
     
-    // 2. 確認バーチェック
+    Print("Breakout size valid: ", breakSize, " pips");
+    
+    // 2. 確認バーチェック（ConfirmationBars=1の場合はスキップ）
     if(m_confirmationBars > 1) {
         for(int i = 1; i < m_confirmationBars; i++) {
             if(direction > 0) {
@@ -408,10 +450,13 @@ bool CPatternBreakPlugin::ValidateBreakout(int direction) {
 //| フィルター適用                                                   |
 //+------------------------------------------------------------------+
 bool CPatternBreakPlugin::ApplyFilters(SignalInfo &signal) {
+    Print("Applying filters to signal...");
+    
     // 時間フィルター
     if(!CheckTimeFilter()) {
         signal.isValid = false;
         signal.additionalInfo = "Time filter failed";
+        Print("Filter failed: Time filter");
         return false;
     }
     
@@ -419,6 +464,7 @@ bool CPatternBreakPlugin::ApplyFilters(SignalInfo &signal) {
     if(!CheckSpreadFilter()) {
         signal.isValid = false;
         signal.additionalInfo = "Spread too high";
+        Print("Filter failed: Spread too high");
         return false;
     }
     
@@ -426,6 +472,7 @@ bool CPatternBreakPlugin::ApplyFilters(SignalInfo &signal) {
     if(!CheckVolatilityFilter()) {
         signal.isValid = false;
         signal.additionalInfo = "Volatility abnormal";
+        Print("Filter failed: Volatility abnormal");
         return false;
     }
     
@@ -433,8 +480,11 @@ bool CPatternBreakPlugin::ApplyFilters(SignalInfo &signal) {
     if(!CheckEMAFilter()) {
         signal.isValid = false;
         signal.additionalInfo = "Too far from EMA";
+        Print("Filter failed: Too far from EMA");
         return false;
     }
+    
+    Print("All filters passed");
     
     return true;
 }
@@ -477,29 +527,30 @@ bool CPatternBreakPlugin::CheckEMAFilter() {
 //| トレード実行                                                     |
 //+------------------------------------------------------------------+
 void CPatternBreakPlugin::ExecuteTrade(SignalInfo &signal) {
-    // ロット計算
-    double lots = m_accountManager.CalculateLotSize(m_stopLossPips);
+    // ロット計算（CAccountManagerのCalculateLotSizeメソッドを使用）
+    double lots = m_accountManager.CalculateLotSize();
+    if(lots <= 0) {
+        lots = 0.01; // デフォルト値
+    }
     
     // 注文実行
     int ticket = -1;
     if(signal.signalType > 0) {
-        // 買い注文
-        ticket = m_orderManager.OpenBuyOrder(
-            lots,
-            signal.stopLoss,
-            signal.takeProfit,
-            signal.setupName,
-            m_magicNumber
-        );
+        // 買い注文（COrderManagerのPlaceBuyOrderメソッドを使用）
+        m_orderManager.UpdateLotSize(lots);
+        m_orderManager.SetStop(PriceToPips(MathAbs(Ask - signal.stopLoss)));
+        m_orderManager.SetTarget(PriceToPips(MathAbs(signal.takeProfit - Ask)));
+        if(m_orderManager.PlaceBuyOrder(true, signal.setupName)) {
+            ticket = OrdersTotal(); // 最新の注文番号を取得
+        }
     } else if(signal.signalType < 0) {
-        // 売り注文
-        ticket = m_orderManager.OpenSellOrder(
-            lots,
-            signal.stopLoss,
-            signal.takeProfit,
-            signal.setupName,
-            m_magicNumber
-        );
+        // 売り注文（COrderManagerのPlaceSellOrderメソッドを使用）
+        m_orderManager.UpdateLotSize(lots);
+        m_orderManager.SetStop(PriceToPips(MathAbs(signal.stopLoss - Bid)));
+        m_orderManager.SetTarget(PriceToPips(MathAbs(Bid - signal.takeProfit)));
+        if(m_orderManager.PlaceSellOrder(true, signal.setupName)) {
+            ticket = OrdersTotal(); // 最新の注文番号を取得
+        }
     }
     
     if(ticket > 0) {
@@ -563,9 +614,10 @@ double CPatternBreakPlugin::CalculateTakeProfit(int direction) {
 //| オープンポジション管理                                           |
 //+------------------------------------------------------------------+
 void CPatternBreakPlugin::ManageOpenPositions() {
-    // トレーリングストップやブレークイーブンの管理
-    m_orderManager.ManageTrailingStop(10.0, 5.0);  // 10pips利益でトレール開始、5pips幅
-    m_orderManager.ManageBreakEven(5.0, 1.0);      // 5pips利益でブレークイーブン
+    // トレーリングストップの管理
+    m_orderManager.SetTrailingStop(true);
+    m_orderManager.SetTrailDistance(5.0);
+    m_orderManager.ManageTrailingStop();  // パラメータなしで呼び出し
 }
 
 //+------------------------------------------------------------------+

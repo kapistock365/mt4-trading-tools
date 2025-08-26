@@ -28,9 +28,9 @@ input bool      EnablePatternBreak  = true;               // パターンブレ�
 input int       MinBuildupBars      = 3;                  // 最小ビルドアップバー数
 input int       MaxBuildupBars      = 10;                 // 最大ビルドアップバー数
 input double    BuildupRangePips    = 10.0;               // ビルドアップ最大幅（pips）
-input double    BreakoutMinPips     = 2.0;                // ブレイク最小幅（pips）
+input double    BreakoutMinPips     = 0.5;                // ブレイク最小幅（pips）
 input double    BreakoutMaxPips     = 5.0;                // ブレイク最大幅（pips）
-input int       ConfirmationBars    = 2;                  // ブレイク確認バー数
+input int       ConfirmationBars    = 1;                  // ブレイク確認バー数
 
 // === エントリー/エグジット設定 ===
 input string    Section3            = "=== Entry/Exit Settings ===";
@@ -45,7 +45,7 @@ input double    BreakEvenTrigger    = 5.0;                // ブレークイー�
 // === フィルター設定 ===
 input string    Section4            = "=== Filter Settings ===";
 input double    MaxEMADistance      = 15.0;               // EMAからの最大距離（pips）
-input double    MaxSpreadPips       = 2.0;                // 最大スプレッド（pips）
+input double    MaxSpreadPips       = 3.0;                // 最大スプレッド（pips）
 input bool      UseTimeFilter       = true;               // 時間フィルター使用
 input int       StartHour           = 7;                  // 開始時間（サーバー時間）
 input int       EndHour             = 21;                 // 終了時間（サーバー時間）
@@ -336,7 +336,9 @@ void ApplyTrailingStop(int ticket) {
         if(profit >= triggerDistance) {
             double newSL = Bid - trailDistance;
             if(newSL > OrderStopLoss()) {
-                OrderModify(ticket, OrderOpenPrice(), newSL, OrderTakeProfit(), 0, clrNONE);
+                if(!OrderModify(ticket, OrderOpenPrice(), newSL, OrderTakeProfit(), 0, clrNONE)) {
+                    Print("Failed to modify trailing stop (buy): ", GetLastError());
+                }
             }
         }
     } else if(OrderType() == OP_SELL) {
@@ -344,7 +346,9 @@ void ApplyTrailingStop(int ticket) {
         if(profit >= triggerDistance) {
             double newSL = Ask + trailDistance;
             if(newSL < OrderStopLoss() || OrderStopLoss() == 0) {
-                OrderModify(ticket, OrderOpenPrice(), newSL, OrderTakeProfit(), 0, clrNONE);
+                if(!OrderModify(ticket, OrderOpenPrice(), newSL, OrderTakeProfit(), 0, clrNONE)) {
+                    Print("Failed to modify trailing stop (sell): ", GetLastError());
+                }
             }
         }
     }
@@ -362,14 +366,18 @@ void ApplyBreakEven(int ticket) {
     if(OrderType() == OP_BUY) {
         double profit = Bid - OrderOpenPrice();
         if(profit >= triggerDistance && OrderStopLoss() < OrderOpenPrice()) {
-            OrderModify(ticket, OrderOpenPrice(), OrderOpenPrice() + point, 
-                       OrderTakeProfit(), 0, clrNONE);
+            if(!OrderModify(ticket, OrderOpenPrice(), OrderOpenPrice() + point, 
+                       OrderTakeProfit(), 0, clrNONE)) {
+                Print("Failed to set break even (buy): ", GetLastError());
+            }
         }
     } else if(OrderType() == OP_SELL) {
         double profit = OrderOpenPrice() - Ask;
         if(profit >= triggerDistance && OrderStopLoss() > OrderOpenPrice()) {
-            OrderModify(ticket, OrderOpenPrice(), OrderOpenPrice() - point, 
-                       OrderTakeProfit(), 0, clrNONE);
+            if(!OrderModify(ticket, OrderOpenPrice(), OrderOpenPrice() - point, 
+                       OrderTakeProfit(), 0, clrNONE)) {
+                Print("Failed to set break even (sell): ", GetLastError());
+            }
         }
     }
 }

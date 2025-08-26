@@ -250,9 +250,13 @@ bool COrderManager::PlaceDualOrders(bool isMarket)
         if(m_lastBuyTicket > 0) {
             if(OrderSelect(m_lastBuyTicket, SELECT_BY_TICKET)) {
                 if(OrderType() > OP_SELL) {  // ペンディングオーダーの場合
-                    OrderDelete(m_lastBuyTicket);
+                    if(!OrderDelete(m_lastBuyTicket)) {
+                        Print("Failed to delete buy order: ", GetLastError());
+                    }
                 } else {  // ポジションの場合
-                    OrderClose(m_lastBuyTicket, OrderLots(), Bid, 3);
+                    if(!OrderClose(m_lastBuyTicket, OrderLots(), Bid, 3)) {
+                        Print("Failed to close buy position: ", GetLastError());
+                    }
                 }
                 m_lastBuyTicket = 0;
             }
@@ -312,13 +316,17 @@ void COrderManager::CheckOrders()
         if(opType == OP_BUY) {
             // 残りのSELLストップオーダーをキャンセル
             if(OrderSelect(m_lastSellTicket, SELECT_BY_TICKET)) {
-                OrderDelete(m_lastSellTicket);
+                if(!OrderDelete(m_lastSellTicket)) {
+                    Print("Failed to delete sell stop order: ", GetLastError());
+                }
                 m_lastSellTicket = 0;
             }
         } else if(opType == OP_SELL) {
             // 残りのBUYストップオーダーをキャンセル
             if(OrderSelect(m_lastBuyTicket, SELECT_BY_TICKET)) {
-                OrderDelete(m_lastBuyTicket);
+                if(!OrderDelete(m_lastBuyTicket)) {
+                    Print("Failed to delete buy stop order: ", GetLastError());
+                }
                 m_lastBuyTicket = 0;
             }
         }

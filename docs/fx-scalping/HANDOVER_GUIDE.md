@@ -258,15 +258,80 @@ Include\FX5MinScalping\DataStructures.mqh(45,5): warning 31: variable not used
 ### 修正履歴の記録
 `docs/fx-scalping/CHANGELOG.md`を作成して記録：
 ```markdown
-## [1.0.1] - 2025-08-XX
+## [1.0.1] - 2025-08-26
 ### Fixed
 - MT4コンパイルエラー修正
-- インクルードパスの調整
-- [具体的な修正内容]
+  - OrderDelete/OrderCloseの戻り値チェック追加
+  - COrderManager/CAccountManagerの初期化修正
+  - 未定義関数の修正
+  - OrderModifyの戻り値チェック追加
+- ゼロ除算エラー修正（BuildupDetector.mqh）
 
 ### Changed
-- [変更内容]
+- パラメータのデフォルト値調整
+  - BreakoutMinPips: 2.0 → 1.0 → 0.5
+  - ConfirmationBars: 2 → 1
+  - MaxSpreadPips: 2.0 → 3.0
+- ビルドアップ距離チェック: 3.0 → 5.0pips
+- ブレイクアウト判定: インデックス1 → 0（現在のバー）
 ```
+
+---
+
+## 📊 方針転換：裁量トレード支援へ（2025-08-26）
+
+### 理由
+- カーブフィッティングの回避
+- ボブ・ボルマン手法は元々裁量向け
+- 人間の判断力を活かす設計へ
+
+### 新インジケーター
+**FX5MinScalpingIndicator.mq4**
+- 予測型の表示（次のアクションを事前表示）
+- 既存ロジックをそのまま活用
+- 詳細: [INDICATOR_GUIDE.md](INDICATOR_GUIDE.md)
+
+---
+
+## 🐛 EAの既知の課題（参考）
+
+### 問題：取引が実行されない
+
+#### 症状
+- パターンは多数検出される（60-80%の品質）
+- ブレイクアウトシグナルが生成されない
+- エントリーが一度も発生しない
+
+#### 原因分析
+1. **価格がレンジ境界を超えない**
+   - 狭いレンジ（4-8pips）でパターン検出
+   - ブレイクアウト条件（境界+0.5pips）を満たさない
+
+2. **Close[0]使用の制限**
+   - バー終値での判定のみ
+   - バー途中のブレイクアウトを見逃している可能性
+
+#### 検討中の解決策
+1. **ティックレベルでの判定**
+   ```cpp
+   // Bid/Askを直接使用
+   if(Ask > m_currentPattern.upperBoundary + PipsToPrice(m_breakoutMinPips))
+   ```
+
+2. **BreakoutMinPipsをゼロまたは負値に**
+   ```cpp
+   input double BreakoutMinPips = 0.0; // または -0.5
+   ```
+
+3. **レンジ幅の最小値を設定**
+   ```cpp
+   if(rangeSize >= 10.0 && rangeSize <= 20.0) // 10pips以上のレンジのみ
+   ```
+
+4. **High/Lowでの判定**
+   ```cpp
+   if(iHigh(Symbol(), PERIOD_M5, 0) > m_currentPattern.upperBoundary)
+   ```
 
 ---
 
